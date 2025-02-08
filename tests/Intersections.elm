@@ -1,8 +1,10 @@
 module Intersections exposing (..)
 
 import Expect
+import Lib exposing (epsilon)
 import Lib.Intersection exposing (Intersection, hit, intersections, prepareComputations)
-import Lib.Object exposing (Id(..), sphere)
+import Lib.Matrix.Transformation exposing (translation)
+import Lib.Object exposing (Id(..), setTransform, sphere)
 import Lib.Ray exposing (Ray)
 import Lib.Tuple exposing (point, vector)
 import Test exposing (Test, describe, test)
@@ -203,4 +205,38 @@ suite =
                     Nothing ->
                         Expect.fail "There were supposed to be intersections here"
             )
+        , test "The hit should offset the point"
+            (\_ ->
+                let
+                    r =
+                        Ray (point 0 0 -5) (vector 0 0 1)
+
+                    shape =
+                        sphere (Id 1) |> setTransform (translation 0 0 1)
+
+                    i =
+                        Intersection 5 shape
+
+                    comps =
+                        prepareComputations r i
+                in
+                Expect.all
+                    [ \_ -> Expect.equal (comps.overPoint.z < -epsilon / 2) True
+                    , \_ -> Expect.equal (comps.point.z > comps.overPoint.z) True
+                    ]
+                    ()
+            )
         ]
+
+
+
+{-
+   Scenario: The hit should offset the point
+   Given r ← ray(point(0, 0, -5), vector(0, 0, 1))
+   And shape ← sphere() with:
+   | transform | translation(0, 0, 1) |
+   And i ← intersection(5, shape)
+   When comps ← prepare_computations(i, r)
+   Then comps.over_point.z < -EPSILON/2
+   And comps.point.z > comps.over_point.z
+-}

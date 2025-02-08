@@ -24,8 +24,8 @@ material =
     }
 
 
-lighting : Material -> Tuple -> Tuple -> Tuple -> Light -> Color
-lighting m point eyev normalv light =
+lighting : Material -> Tuple -> Tuple -> Tuple -> Bool -> Light -> Color
+lighting m point eyev normalv inShadow light =
     let
         --combine the surface color with the light's color/intensity
         effectiveColor =
@@ -46,7 +46,7 @@ lighting m point eyev normalv light =
             dot lightv normalv
 
         ( diffuse, specular ) =
-            if lightDotNormal < 0 then
+            if lightDotNormal < 0 || inShadow then
                 ( black, black )
 
             else

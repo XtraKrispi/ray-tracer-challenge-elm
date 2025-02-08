@@ -5,11 +5,11 @@ import Lib.Color exposing (Color, black, color, white)
 import Lib.Intersection exposing (Intersection, prepareComputations)
 import Lib.Light exposing (pointLight)
 import Lib.Material exposing (material)
-import Lib.Matrix.Transformation exposing (scaling)
+import Lib.Matrix.Transformation exposing (scaling, translation)
 import Lib.Object exposing (Id(..), setMaterial, setTransform, sphere)
 import Lib.Ray exposing (Ray)
 import Lib.Tuple exposing (point, vector)
-import Lib.World exposing (colorAt, defaultWorld, intersectWorld, shadeHit, world)
+import Lib.World exposing (addLight, addObject, colorAt, defaultWorld, intersectWorld, isShadowed, shadeHit, world)
 import List.Extra
 import Test exposing (Test, describe, test)
 
@@ -192,6 +192,80 @@ suite =
 
                     _ ->
                         Expect.fail "This wasn't supposed to happen"
+            )
+        , test "There is no shadow when nothing is collinear with point and light"
+            (\_ ->
+                let
+                    w =
+                        defaultWorld
+
+                    p =
+                        point 0 10 0
+                in
+                Expect.equal (isShadowed w p) False
+            )
+        , test "The shadow when an object is between the point and the light"
+            (\_ ->
+                let
+                    w =
+                        defaultWorld
+
+                    p =
+                        point 10 -10 10
+                in
+                Expect.equal (isShadowed w p) True
+            )
+        , test "There is no shadow when an object is behind the light"
+            (\_ ->
+                let
+                    w =
+                        defaultWorld
+
+                    p =
+                        point -20 20 -20
+                in
+                Expect.equal (isShadowed w p) False
+            )
+        , test "There is no shadow when an object is behind the point"
+            (\_ ->
+                let
+                    w =
+                        defaultWorld
+
+                    p =
+                        point -2 2 -2
+                in
+                Expect.equal (isShadowed w p) False
+            )
+        , test "shade_hit() is given an intersection in shadow"
+            (\_ ->
+                let
+                    s1 =
+                        sphere (Id 0)
+
+                    s2 =
+                        sphere (Id 1)
+                            |> setTransform (translation 0 0 10)
+
+                    w =
+                        world
+                            |> addLight (pointLight (point 0 0 -10) white)
+                            |> addObject s1
+                            |> addObject s2
+
+                    r =
+                        Ray (point 0 0 5) (vector 0 0 1)
+
+                    i =
+                        Intersection 4 s2
+
+                    comps =
+                        prepareComputations r i
+
+                    c =
+                        shadeHit w comps
+                in
+                assertColorMatches c (color 0.1 0.1 0.1)
             )
         ]
 

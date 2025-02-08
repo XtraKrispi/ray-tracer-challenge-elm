@@ -7,7 +7,7 @@ import Lib.Material exposing (lighting, material)
 import Lib.Matrix.Transformation exposing (scaling)
 import Lib.Object exposing (Id(..), Object, setMaterial, setTransform, sphere)
 import Lib.Ray exposing (Ray)
-import Lib.Tuple exposing (point)
+import Lib.Tuple exposing (Tuple, magnitude, normalize, point, subtract)
 
 
 type alias World =
@@ -42,8 +42,12 @@ defaultWorld =
 
 shadeHit : World -> Computation -> Color
 shadeHit w comps =
+    let
+        shadowed =
+            isShadowed w comps.overPoint
+    in
     w.lights
-        |> List.map (lighting comps.object.material comps.point comps.eyev comps.normalv)
+        |> List.map (lighting comps.object.material comps.point comps.eyev comps.normalv shadowed)
         |> List.foldr Lib.Color.add black
 
 
@@ -61,3 +65,42 @@ colorAt w r =
         |> hit
         |> Maybe.map (shadeHit w << prepareComputations r)
         |> Maybe.withDefault black
+
+
+isShadowed : World -> Tuple -> Bool
+isShadowed w p =
+    let
+        perLight light =
+            let
+                v =
+                    subtract light.position p
+
+                distance =
+                    magnitude v
+
+                direction =
+                    normalize v
+
+                r =
+                    Ray p direction
+
+                intersections =
+                    intersectWorld w r
+
+                h =
+                    hit intersections
+            in
+            h |> Maybe.map (\h_ -> h_.t < distance) |> Maybe.withDefault False
+    in
+    w.lights
+        |> List.any perLight
+
+
+addLight : Light -> World -> World
+addLight light w =
+    { w | lights = w.lights ++ [ light ] }
+
+
+addObject : Object -> World -> World
+addObject obj w =
+    { w | objects = w.objects ++ [ obj ] }

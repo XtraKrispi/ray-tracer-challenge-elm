@@ -1,9 +1,10 @@
 module Lib.Intersection exposing (..)
 
+import Lib exposing (epsilon)
 import Lib.Matrix exposing (invert)
 import Lib.Object exposing (Object, ObjectType(..), normalAt)
 import Lib.Ray exposing (Ray, position, transform)
-import Lib.Tuple exposing (Tuple, dot, point, subtract)
+import Lib.Tuple exposing (Tuple, add, dot, multiply, point, subtract)
 import List.Extra as List
 
 
@@ -69,6 +70,7 @@ type alias Computation =
     , point : Tuple
     , eyev : Tuple
     , normalv : Tuple
+    , overPoint : Tuple
     , inside : Bool
     }
 
@@ -86,10 +88,16 @@ prepareComputations ray intersection =
             , eyev = Lib.Tuple.negate ray.direction
             , normalv = normalAt pt intersection.object
             , inside = False
+            , overPoint = pt
             }
-    in
-    if dot comps.normalv comps.eyev < 0 then
-        { comps | inside = True, normalv = Lib.Tuple.negate comps.normalv }
 
-    else
-        { comps | inside = False }
+        results =
+            if dot comps.normalv comps.eyev < 0 then
+                { comps | inside = True, normalv = Lib.Tuple.negate comps.normalv }
+
+            else
+                { comps | inside = False }
+    in
+    { results
+        | overPoint = add results.point (multiply results.normalv epsilon)
+    }

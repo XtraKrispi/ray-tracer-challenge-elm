@@ -3,16 +3,14 @@ module Main exposing (main)
 import Browser
 import Html
 import Lib.Camera exposing (camera)
-import Lib.Canvas exposing (Canvas, canvas, render)
-import Lib.Color exposing (black, color, white)
-import Lib.Intersection exposing (hit, intersections)
+import Lib.Canvas exposing (Canvas, render)
+import Lib.Color exposing (color, white)
 import Lib.Light exposing (pointLight)
-import Lib.Material exposing (lighting, material)
+import Lib.Material exposing (material)
 import Lib.Matrix exposing (multiply, multiplyMany)
 import Lib.Matrix.Transformation exposing (RotationAmount(..), rotationX, rotationY, scaling, translation, viewTransform)
-import Lib.Object exposing (Id(..), normalAt, setMaterial, setTransform, sphere)
-import Lib.Ray exposing (Ray, position)
-import Lib.Tuple exposing (normalize, point, subtract, vector)
+import Lib.Object exposing (Id(..), setMaterial, setTransform, sphere)
+import Lib.Tuple exposing (point, vector)
 import Lib.World exposing (world)
 
 
@@ -60,85 +58,11 @@ subscriptions _ =
 view : Model -> Html.Html Msg
 view _ =
     Html.div []
-        [ scene2 |> render ]
+        [ scene |> render ]
 
 
-myCanvas : Canvas
-myCanvas =
-    let
-        rayOrigin =
-            point 0 0 -5
-
-        wallZ =
-            10
-
-        wallSize =
-            7
-
-        canvasPixels =
-            200
-
-        pixelSize =
-            wallSize / canvasPixels
-
-        half =
-            wallSize / 2
-
-        _ =
-            color 1 0 0
-
-        shape =
-            sphere (Id 1)
-                |> setMaterial { material | color = color 1 0.2 1 }
-
-        lightPosition =
-            point -10 10 -10
-
-        lightColor =
-            white
-
-        light =
-            pointLight lightPosition lightColor
-
-        fn ( x, y ) =
-            let
-                worldY =
-                    half - pixelSize * toFloat y
-
-                worldX =
-                    -half + pixelSize * toFloat x
-
-                position =
-                    point worldX worldY wallZ
-
-                r =
-                    Ray rayOrigin (normalize (subtract position rayOrigin))
-
-                xs =
-                    intersections r shape
-            in
-            case hit xs of
-                Just h ->
-                    let
-                        pt =
-                            Lib.Ray.position r h.t
-
-                        normal =
-                            normalAt pt h.object
-
-                        eye =
-                            Lib.Tuple.negate r.direction
-                    in
-                    lighting h.object.material pt eye normal light
-
-                Nothing ->
-                    black
-    in
-    canvas fn canvasPixels canvasPixels
-
-
-scene2 : Canvas
-scene2 =
+scene : Canvas
+scene =
     let
         floor =
             sphere (Id 1)
