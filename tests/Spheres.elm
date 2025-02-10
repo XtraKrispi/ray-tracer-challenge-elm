@@ -1,11 +1,12 @@
 module Spheres exposing (..)
 
 import Expect
+import Lib exposing (epsilon)
 import Lib.Intersection exposing (intersections)
 import Lib.Material exposing (material)
 import Lib.Matrix exposing (identityMatrix, multiply)
 import Lib.Matrix.Transformation exposing (RotationAmount(..), rotationZ, scaling, translation)
-import Lib.Object exposing (Id(..), normalAt, setMaterial, setTransform, sphere)
+import Lib.Object exposing (Id(..), normalAt, setMaterial, setTransform, sphere, testShape)
 import Lib.Ray exposing (Ray)
 import Lib.Tuple exposing (Tuple, normalize, point, vector)
 import Test exposing (Test, describe, test)
@@ -14,26 +15,7 @@ import Test exposing (Test, describe, test)
 suite : Test
 suite =
     describe "Sphere Tests"
-        [ test "A sphere's default transformation"
-            (\_ ->
-                let
-                    s =
-                        sphere (Id 1)
-                in
-                Expect.equal s.transform identityMatrix
-            )
-        , test "Changing a sphere's transformation"
-            (\_ ->
-                let
-                    s =
-                        sphere (Id 1)
-
-                    t =
-                        translation 2 3 4
-                in
-                Expect.equal (setTransform t s).transform t
-            )
-        , test "Intersecting a scaled sphere with a ray"
+        [ test "Intersecting a scaled sphere with a ray"
             (\_ ->
                 let
                     r =
@@ -169,4 +151,10 @@ suite =
 
 assertEqualTuple : Tuple -> Tuple -> Expect.Expectation
 assertEqualTuple t1 t2 =
-    Expect.equal (Lib.Tuple.equal t1 t2) True
+    Expect.all
+        [ \_ -> Expect.within (Expect.Absolute epsilon) t1.x t2.x
+        , \_ -> Expect.within (Expect.Absolute epsilon) t1.y t2.y
+        , \_ -> Expect.within (Expect.Absolute epsilon) t1.z t2.z
+        , \_ -> Expect.within (Expect.Absolute epsilon) t1.w t2.w
+        ]
+        ()

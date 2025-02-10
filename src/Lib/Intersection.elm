@@ -2,7 +2,7 @@ module Lib.Intersection exposing (..)
 
 import Lib exposing (epsilon)
 import Lib.Matrix exposing (invert)
-import Lib.Object exposing (Object, ObjectType(..), normalAt)
+import Lib.Object exposing (Object, Shape(..), normalAt)
 import Lib.Ray exposing (Ray, position, transform)
 import Lib.Tuple exposing (Tuple, add, dot, multiply, point, subtract)
 import List.Extra as List
@@ -12,13 +12,19 @@ type alias Intersection =
     { t : Float, object : Object }
 
 
-intersections : Ray -> Object -> List Intersection
-intersections r obj =
-    let
-        { origin, direction } =
-            transform r (invert obj.transform)
-    in
-    case obj.type_ of
+localIntersections : Ray -> Object -> List Intersection
+localIntersections { origin, direction } obj =
+    case obj.shape of
+        TestShape ->
+            []
+
+        Plane ->
+            if abs direction.y < epsilon then
+                []
+
+            else
+                [ { t = -origin.y / direction.y, object = obj } ]
+
         Sphere ->
             let
                 sphereToRay =
@@ -54,6 +60,15 @@ intersections r obj =
                   , object = obj
                   }
                 ]
+
+
+intersections : Ray -> Object -> List Intersection
+intersections r obj =
+    let
+        localRay =
+            transform r (invert obj.transform)
+    in
+    localIntersections localRay obj
 
 
 hit : List Intersection -> Maybe Intersection
