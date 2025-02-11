@@ -1,5 +1,6 @@
 module Lib.Object exposing (..)
 
+import Lib.Color exposing (Color, black)
 import Lib.Material exposing (Material, material)
 import Lib.Matrix
     exposing
@@ -10,6 +11,7 @@ import Lib.Matrix
         , multTuple
         , transpose
         )
+import Lib.Pattern exposing (Pattern, patternAt)
 import Lib.Tuple
     exposing
         ( Tuple
@@ -101,3 +103,15 @@ normalAt worldPoint obj =
             multTuple (transpose (invert obj.transform)) localNormal
     in
     normalize { worldNormal | w = 0 }
+
+
+patternAtShape : Tuple -> Pattern -> Object -> Color
+patternAtShape worldPoint pattern object =
+    let
+        objectPoint =
+            multTuple (invert object.transform) worldPoint
+
+        patternPoint =
+            multTuple (invert pattern.transform) objectPoint
+    in
+    patternAt patternPoint pattern

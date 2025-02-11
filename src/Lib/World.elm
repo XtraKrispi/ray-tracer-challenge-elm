@@ -3,7 +3,8 @@ module Lib.World exposing (..)
 import Lib.Color exposing (Color, black, color, white)
 import Lib.Intersection exposing (Computation, Intersection, hit, intersections, prepareComputations)
 import Lib.Light exposing (Light, pointLight)
-import Lib.Material exposing (lighting, material)
+import Lib.Lighting exposing (lighting)
+import Lib.Material exposing (material)
 import Lib.Matrix.Transformation exposing (scaling)
 import Lib.Object exposing (Id(..), Object, setMaterial, setTransform, sphere)
 import Lib.Ray exposing (Ray)
@@ -47,7 +48,7 @@ shadeHit w comps =
             isShadowed w comps.overPoint
     in
     w.lights
-        |> List.map (lighting comps.object.material comps.point comps.eyev comps.normalv shadowed)
+        |> List.map (lighting comps.object.material comps.object comps.point comps.eyev comps.normalv shadowed)
         |> List.foldr Lib.Color.add black
 
 

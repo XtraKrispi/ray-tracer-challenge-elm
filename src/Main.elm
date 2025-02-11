@@ -4,12 +4,13 @@ import Browser
 import Html
 import Lib.Camera exposing (camera)
 import Lib.Canvas exposing (Canvas, render)
-import Lib.Color exposing (color, white)
+import Lib.Color exposing (black, color, white)
 import Lib.Light exposing (pointLight)
 import Lib.Material exposing (material)
 import Lib.Matrix exposing (multiply, multiplyMany)
 import Lib.Matrix.Transformation exposing (RotationAmount(..), rotationX, rotationY, scaling, translation, viewTransform)
 import Lib.Object exposing (Id(..), plane, setMaterial, setTransform, sphere)
+import Lib.Pattern exposing (checkersPattern, gradientPattern, stripePattern)
 import Lib.Tuple exposing (point, vector)
 import Lib.World exposing (world)
 
@@ -175,6 +176,7 @@ scene2 =
                         | color = color 0.1 1 0.5
                         , diffuse = 0.7
                         , specular = 0.3
+                        , pattern = Just (checkersPattern white black)
                     }
 
         right =
@@ -204,7 +206,7 @@ scene2 =
             }
 
         c =
-            camera 200 100 (pi / 3)
+            camera 300 150 (pi / 3)
                 |> Lib.Camera.setTransform (viewTransform (point 0 1.5 -5) (point 0 1 0) (vector 0 1 0))
     in
     Lib.Camera.render c w

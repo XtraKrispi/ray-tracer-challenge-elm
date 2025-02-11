@@ -1,9 +1,12 @@
 module Materials exposing (..)
 
 import Expect
-import Lib.Color exposing (Color, color, white)
+import Lib.Color exposing (Color, black, color, white)
 import Lib.Light exposing (pointLight)
-import Lib.Material exposing (lighting, material)
+import Lib.Lighting exposing (lighting)
+import Lib.Material exposing (material)
+import Lib.Object exposing (Id(..), sphere)
+import Lib.Pattern exposing (stripePattern)
 import Lib.Tuple exposing (point, vector)
 import Test exposing (Test, describe, test)
 
@@ -44,7 +47,7 @@ suite =
                     light =
                         pointLight (point 0 0 -10) (color 1 1 1)
                 in
-                assertColorEqual (lighting m position eyev normalv False light) (color 1.9 1.9 1.9)
+                assertColorEqual (lighting m (sphere (Id 1)) position eyev normalv False light) (color 1.9 1.9 1.9)
             )
         , test "Lighting with the eye between light and surface, eye offset 45°"
             (\_ ->
@@ -64,7 +67,7 @@ suite =
                     light =
                         pointLight (point 0 0 -10) (color 1 1 1)
                 in
-                assertColorEqual (lighting m position eyev normalv False light) (color 1 1 1)
+                assertColorEqual (lighting m (sphere (Id 1)) position eyev normalv False light) (color 1 1 1)
             )
         , test "Lighting with eye opposite surface, light offset 45°"
             (\_ ->
@@ -84,7 +87,7 @@ suite =
                     light =
                         pointLight (point 0 10 -10) (color 1 1 1)
                 in
-                assertColorEqual (lighting m position eyev normalv False light) (color 0.7364 0.7364 0.7364)
+                assertColorEqual (lighting m (sphere (Id 1)) position eyev normalv False light) (color 0.7364 0.7364 0.7364)
             )
         , test "Lighting with eye in the path of the reflection vector"
             (\_ ->
@@ -104,7 +107,7 @@ suite =
                     light =
                         pointLight (point 0 10 -10) (color 1 1 1)
                 in
-                assertColorEqual (lighting m position eyev normalv False light) (color 1.6364 1.6364 1.6364)
+                assertColorEqual (lighting m (sphere (Id 1)) position eyev normalv False light) (color 1.6364 1.6364 1.6364)
             )
         , test "Lighting with the light behind the surface"
             (\_ ->
@@ -124,7 +127,7 @@ suite =
                     light =
                         pointLight (point 0 0 10) (color 1 1 1)
                 in
-                assertColorEqual (lighting m position eyev normalv False light) (color 0.1 0.1 0.1)
+                assertColorEqual (lighting m (sphere (Id 1)) position eyev normalv False light) (color 0.1 0.1 0.1)
             )
         , test "Lighting with the surface in shadow"
             (\_ ->
@@ -148,23 +151,43 @@ suite =
                         True
 
                     result =
-                        lighting m position eyev normalv inShadow light
+                        lighting m (sphere (Id 1)) position eyev normalv inShadow light
                 in
                 assertColorEqual result (color 0.1 0.1 0.1)
             )
+        , test "Lighting with a pattern applied"
+            (\_ ->
+                let
+                    m =
+                        { material
+                            | ambient = 1
+                            , diffuse = 0
+                            , specular = 0
+                            , pattern = Just (stripePattern white black)
+                        }
+
+                    eyev =
+                        vector 0 0 -1
+
+                    normalv =
+                        vector 0 0 -1
+
+                    light =
+                        pointLight (point 0 0 -10) white
+
+                    c1 =
+                        lighting m (sphere (Id 1)) (point 0.9 0 0) eyev normalv False light
+
+                    c2 =
+                        lighting m (sphere (Id 1)) (point 1.1 0 0) eyev normalv False light
+                in
+                Expect.all
+                    [ \_ -> assertColorEqual c1 white
+                    , \_ -> assertColorEqual c2 black
+                    ]
+                    ()
+            )
         ]
-
-
-
-{-
-   Scenario: Lighting with the surface in shadow
-   Given eyev ← vector(0, 0, -1)
-   And normalv ← vector(0, 0, -1)
-   And light ← point_light(point(0, 0, -10), color(1, 1, 1))
-   And in_shadow ← true
-   When result ← lighting(m, light, position, eyev, normalv, in_shadow)
-   Then result = color(0.1, 0.1, 0.1)
--}
 
 
 assertColorEqual : Color -> Color -> Expect.Expectation
