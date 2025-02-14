@@ -1,15 +1,17 @@
 module World exposing (..)
 
 import Expect exposing (Expectation)
+import Lib exposing (epsilon)
 import Lib.Color exposing (Color, black, color, white)
 import Lib.Intersection exposing (Intersection, prepareComputations)
 import Lib.Light exposing (pointLight)
 import Lib.Material exposing (material)
 import Lib.Matrix.Transformation exposing (scaling, translation)
-import Lib.Object exposing (Id(..), setMaterial, setTransform, sphere)
+import Lib.Object exposing (Id(..), plane, setMaterial, setTransform, sphere)
+import Lib.Pattern exposing (testPattern)
 import Lib.Ray exposing (Ray)
 import Lib.Tuple exposing (point, vector)
-import Lib.World exposing (addLight, addObject, colorAt, defaultWorld, intersectWorld, isShadowed, shadeHit, world)
+import Lib.World exposing (addLight, addObject, colorAt, defaultWorld, emptyWorld, indexedMapObjects, intersectWorld, isShadowed, mapObjects, reflectedColor, refractedColor, shadeHit)
 import List.Extra
 import Test exposing (Test, describe, test)
 
@@ -21,7 +23,7 @@ suite =
             (\_ ->
                 let
                     w =
-                        world
+                        emptyWorld
                 in
                 Expect.equal (List.isEmpty w.objects) True
             )
@@ -41,7 +43,7 @@ suite =
                                 }
 
                     s2 =
-                        sphere (Id 1)
+                        sphere (Id 2)
                             |> setTransform (scaling 0.5 0.5 0.5)
                 in
                 Expect.all
@@ -85,10 +87,10 @@ suite =
                                 Intersection 4 shape
 
                             comps =
-                                prepareComputations r i
+                                prepareComputations r [] i
 
                             c =
-                                shadeHit w comps
+                                shadeHit w 5 comps
                         in
                         Expect.equal (Lib.Color.equal c (color 0.38066 0.47583 0.2855)) True
 
@@ -114,10 +116,10 @@ suite =
                                 Intersection 0.5 shape
 
                             comps =
-                                prepareComputations r i
+                                prepareComputations r [] i
 
                             c =
-                                shadeHit w comps
+                                shadeHit w 5 comps
                         in
                         Expect.equal (Lib.Color.equal c (color 0.90498 0.90498 0.90498)) True
 
@@ -134,7 +136,7 @@ suite =
                         Ray (point 0 0 -5) (vector 0 1 0)
 
                     c =
-                        colorAt w r
+                        colorAt w 5 r
                 in
                 assertColorMatches c black
             )
@@ -148,7 +150,7 @@ suite =
                         Ray (point 0 0 -5) (vector 0 0 1)
 
                     c =
-                        colorAt w r
+                        colorAt w 5 r
                 in
                 assertColorMatches c (color 0.38066 0.47583 0.2855)
             )
@@ -186,7 +188,7 @@ suite =
                                 Ray (point 0 0 0.75) (vector 0 0 -1)
 
                             c =
-                                colorAt newWorld r
+                                colorAt newWorld 5 r
                         in
                         assertColorMatches c newInnerMaterial.color
 
@@ -248,7 +250,7 @@ suite =
                             |> setTransform (translation 0 0 10)
 
                     w =
-                        world
+                        emptyWorld
                             |> addLight (pointLight (point 0 0 -10) white)
                             |> addObject s1
                             |> addObject s2
@@ -260,12 +262,344 @@ suite =
                         Intersection 4 s2
 
                     comps =
-                        prepareComputations r i
+                        prepareComputations r [ i ] i
 
                     c =
-                        shadeHit w comps
+                        shadeHit w 5 comps
                 in
                 assertColorMatches c (color 0.1 0.1 0.1)
+            )
+        , test "The reflected color for a nonreflective material"
+            (\_ ->
+                let
+                    w =
+                        defaultWorld
+
+                    r =
+                        Ray (point 0 0 0) (vector 0 0 1)
+
+                    shape =
+                        sphere (Id 1)
+                            |> setTransform (scaling 0.5 0.5 0.5)
+
+                    i =
+                        Intersection 1 shape
+
+                    comps =
+                        prepareComputations r [ i ] i
+
+                    color =
+                        reflectedColor w 5 comps
+                in
+                assertColorMatches color black
+            )
+        , test "The reflected color for a reflective material"
+            (\_ ->
+                let
+                    shape =
+                        plane (Id 10)
+                            |> Lib.Object.setTransform (translation 0 -1 0)
+                            |> Lib.Object.setMaterial { material | reflective = 0.5 }
+
+                    w =
+                        defaultWorld
+                            |> Lib.World.addObject shape
+
+                    r =
+                        Ray (point 0 0 -3) (vector 0 -(sqrt 2 / 2) (sqrt 2 / 2))
+
+                    i =
+                        Intersection (sqrt 2) shape
+
+                    comps =
+                        prepareComputations r [ i ] i
+
+                    c =
+                        reflectedColor w 5 comps
+                in
+                assertColorMatches c (color 0.19032 0.2379 0.14274)
+            )
+        , test "shade_hit() with a reflective material"
+            (\_ ->
+                let
+                    shape =
+                        plane (Id 10)
+                            |> Lib.Object.setTransform (translation 0 -1 0)
+                            |> Lib.Object.setMaterial { material | reflective = 0.5 }
+
+                    w =
+                        defaultWorld
+                            |> Lib.World.addObject shape
+
+                    r =
+                        Ray (point 0 0 -3) (vector 0 -(sqrt 2 / 2) (sqrt 2 / 2))
+
+                    i =
+                        Intersection (sqrt 2) shape
+
+                    comps =
+                        prepareComputations r [ i ] i
+
+                    c =
+                        shadeHit w 5 comps
+                in
+                assertColorMatches c (color 0.87677 0.92436 0.82918)
+            )
+        , test "color_at() with mutually reflective surfaces"
+            (\_ ->
+                let
+                    w =
+                        emptyWorld
+                            |> addLight (pointLight (point 0 0 0) white)
+                            |> addObject
+                                (plane (Id 1)
+                                    |> setMaterial { material | reflective = 1 }
+                                    |> setTransform (translation 0 -1 0)
+                                )
+                            |> addObject
+                                (plane (Id 2)
+                                    |> setMaterial { material | reflective = 1 }
+                                    |> setTransform (translation 0 1 0)
+                                )
+
+                    r =
+                        Ray (point 0 0 0) (vector 0 1 0)
+
+                    c =
+                        colorAt w 5 r
+                in
+                Expect.equal c c
+            )
+        , test "The reflected color at the maximum recursive depth"
+            (\_ ->
+                let
+                    shape =
+                        plane (Id 10)
+                            |> Lib.Object.setTransform (translation 0 -1 0)
+                            |> Lib.Object.setMaterial { material | reflective = 0.5 }
+
+                    w =
+                        defaultWorld
+                            |> Lib.World.addObject shape
+
+                    r =
+                        Ray (point 0 0 -3) (vector 0 -(sqrt 2 / 2) (sqrt 2 / 2))
+
+                    i =
+                        Intersection (sqrt 2) shape
+
+                    comps =
+                        prepareComputations r [] i
+
+                    c =
+                        reflectedColor w 0 comps
+                in
+                assertColorMatches c black
+            )
+        , test "The refracted color with an opaque surface"
+            (\_ ->
+                let
+                    w =
+                        defaultWorld
+
+                    r =
+                        Ray (point 0 0 -5) (vector 0 0 1)
+                in
+                case w.objects of
+                    [] ->
+                        Expect.fail "Whoopsie"
+
+                    shape :: _ ->
+                        let
+                            xs =
+                                [ Intersection 4 shape, Intersection 6 shape ]
+
+                            comps =
+                                prepareComputations r xs (Intersection 4 shape)
+
+                            c =
+                                refractedColor w 5 comps
+                        in
+                        assertColorMatches c black
+            )
+        , test "The refracted color at the maximum recursive depth"
+            (\_ ->
+                let
+                    w =
+                        defaultWorld
+                            |> indexedMapObjects
+                                (\i o ->
+                                    if i == 0 then
+                                        o
+                                            |> Lib.Object.setMaterial { material | transparency = 1, refractiveIndex = 1.5 }
+
+                                    else
+                                        o
+                                )
+
+                    r =
+                        Ray (point 0 0 -5) (vector 0 0 1)
+                in
+                case w.objects of
+                    [] ->
+                        Expect.fail "Whoopsie"
+
+                    shape :: _ ->
+                        let
+                            xs =
+                                [ Intersection 4 shape, Intersection 6 shape ]
+
+                            comps =
+                                prepareComputations r xs (Intersection 4 shape)
+
+                            c =
+                                refractedColor w 0 comps
+                        in
+                        assertColorMatches c black
+            )
+        , test "The refracted color under total internal reflection"
+            (\_ ->
+                let
+                    w =
+                        defaultWorld
+                            |> indexedMapObjects
+                                (\i o ->
+                                    if i == 0 then
+                                        o
+                                            |> Lib.Object.setMaterial { material | transparency = 1, refractiveIndex = 1.5 }
+
+                                    else
+                                        o
+                                )
+
+                    r =
+                        Ray (point 0 0 (sqrt 2 / 2)) (vector 0 1 0)
+                in
+                case w.objects of
+                    [] ->
+                        Expect.fail "Whoopsie"
+
+                    shape :: _ ->
+                        let
+                            xs =
+                                [ Intersection -(sqrt 2 / 2) shape, Intersection (sqrt 2 / 2) shape ]
+
+                            comps =
+                                prepareComputations r xs (Intersection (sqrt 2 / 2) shape)
+
+                            c =
+                                refractedColor w 5 comps
+                        in
+                        assertColorMatches c black
+            )
+        , test "The refracted color with a refracted ray"
+            (\_ ->
+                let
+                    w =
+                        defaultWorld
+                            |> indexedMapObjects
+                                (\i o ->
+                                    if i == 0 then
+                                        o
+                                            |> Lib.Object.setMaterial { material | ambient = 1, pattern = Just testPattern }
+
+                                    else
+                                        o |> Lib.Object.setMaterial { material | transparency = 1, refractiveIndex = 1.5 }
+                                )
+
+                    r =
+                        Ray (point 0 0 0.1) (vector 0 1 0)
+                in
+                case w.objects of
+                    [ a, b ] ->
+                        let
+                            {- intersections(-0.9899:A, -0.4899:B, 0.4899:B, 0.9899:A) -}
+                            xs =
+                                [ Intersection -0.9899 a, Intersection -0.4899 b, Intersection 0.4899 b, Intersection 0.9899 a ]
+
+                            comps =
+                                prepareComputations r xs (Intersection 0.4899 b)
+
+                            c =
+                                refractedColor w 5 comps
+                        in
+                        assertColorMatches c (color 0 0.99888 0.04725)
+
+                    _ ->
+                        Expect.fail "Whoopsie"
+            )
+        , test "shade_hit() with a transparent material"
+            (\_ ->
+                let
+                    w =
+                        defaultWorld
+                            |> addObject floor
+                            |> addObject ball
+
+                    floor =
+                        plane (Id 3)
+                            |> Lib.Object.setTransform (translation 0 -1 0)
+                            |> Lib.Object.setMaterial
+                                { material
+                                    | transparency = 0.5
+                                    , refractiveIndex = 1.5
+                                }
+
+                    ball =
+                        sphere (Id 4)
+                            |> Lib.Object.setMaterial { material | color = color 1 0 0, ambient = 0.5 }
+                            |> Lib.Object.setTransform (translation 0 -3.5 -0.5)
+
+                    r =
+                        Ray (point 0 0 -3) (vector 0 -(sqrt 2 / 2) (sqrt 2 / 2))
+
+                    xs =
+                        [ Intersection (sqrt 2) floor ]
+
+                    comps =
+                        prepareComputations r xs (Intersection (sqrt 2) floor)
+
+                    c =
+                        shadeHit w 5 comps
+                in
+                assertColorMatches c (color 0.93642 0.68642 0.68642)
+            )
+        , test "shade_hit() with a reflective, transparent material"
+            (\_ ->
+                let
+                    w =
+                        defaultWorld
+                            |> addObject floor
+                            |> addObject ball
+
+                    r =
+                        Ray (point 0 0 -3) (vector 0 -(sqrt 2 / 2) (sqrt 2 / 2))
+
+                    floor =
+                        plane (Id 10)
+                            |> Lib.Object.setTransform (translation 0 -1 0)
+                            |> Lib.Object.setMaterial
+                                { material
+                                    | reflective = 0.5
+                                    , transparency = 0.5
+                                    , refractiveIndex = 1.5
+                                }
+
+                    ball =
+                        sphere (Id 11)
+                            |> Lib.Object.setTransform (translation 0 -3.5 -0.5)
+                            |> Lib.Object.setMaterial { material | color = color 1 0 0, ambient = 0.5 }
+
+                    xs =
+                        [ Intersection (sqrt 2) floor ]
+
+                    comps =
+                        prepareComputations r xs (Intersection (sqrt 2) floor)
+
+                    col =
+                        shadeHit w 5 comps
+                in
+                assertColorMatches col (color 0.93391 0.69643 0.69243)
             )
         ]
 

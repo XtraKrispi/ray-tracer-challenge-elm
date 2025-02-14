@@ -12,7 +12,7 @@ import Lib.Matrix.Transformation exposing (RotationAmount(..), rotationX, rotati
 import Lib.Object exposing (Id(..), plane, setMaterial, setTransform, sphere)
 import Lib.Pattern exposing (checkersPattern, gradientPattern, stripePattern)
 import Lib.Tuple exposing (point, vector)
-import Lib.World exposing (world)
+import Lib.World exposing (addObject, defaultWorld, emptyWorld)
 
 
 main : Program () Model Msg
@@ -59,7 +59,7 @@ subscriptions _ =
 view : Model -> Html.Html Msg
 view _ =
     Html.div []
-        [ scene2 |> render ]
+        [ scene3 |> render ]
 
 
 scene : Canvas
@@ -125,7 +125,7 @@ scene =
                     }
 
         w =
-            { world
+            { emptyWorld
                 | lights = [ pointLight (point -10 10 -10) white ]
                 , objects = [ floor, leftWall, rightWall, middle, right, left ]
             }
@@ -176,7 +176,8 @@ scene2 =
                         | color = color 0.1 1 0.5
                         , diffuse = 0.7
                         , specular = 0.3
-                        , pattern = Just (checkersPattern white black)
+                        , pattern = Nothing
+                        , reflective = 0.3
                     }
 
         right =
@@ -199,14 +200,50 @@ scene2 =
                         , specular = 0.3
                     }
 
+        shape =
+            plane (Id 1)
+                |> Lib.Object.setMaterial { material | reflective = 1 }
+                |> Lib.Object.setTransform (translation 0 -1 0)
+
         w =
-            { world
-                | lights = [ pointLight (point -10 10 -10) white ]
-                , objects = [ floor, rightWall, middle, right, left ]
-            }
+            defaultWorld
+                |> addObject shape
+
+        -- { emptyWorld
+        --     | lights = [ pointLight (point -10 10 -10) white ]
+        --     , objects = [ floor, rightWall, middle, right, left ]
+        -- }
+        c =
+            camera 300 150 (pi / 3)
+                |> Lib.Camera.setTransform (viewTransform (point 0 1.5 -10) (point 0 1 0) (vector 0 1 0))
+    in
+    Lib.Camera.render c w
+
+
+scene3 : Canvas
+scene3 =
+    let
+        w =
+            defaultWorld
+                |> addObject floor
+                |> addObject ball
+
+        floor =
+            plane (Id 3)
+                |> Lib.Object.setTransform (translation 0 -1 0)
+                |> Lib.Object.setMaterial
+                    { material
+                        | transparency = 0.5
+                        , refractiveIndex = 1.5
+                    }
+
+        ball =
+            sphere (Id 4)
+                |> Lib.Object.setMaterial { material | color = color 1 0 0, ambient = 0.5 }
+                |> Lib.Object.setTransform (translation 0 -3.5 -0.5)
 
         c =
             camera 300 150 (pi / 3)
-                |> Lib.Camera.setTransform (viewTransform (point 0 1.5 -5) (point 0 1 0) (vector 0 1 0))
+                |> Lib.Camera.setTransform (viewTransform (point 0 1.5 -10) (point 0 1 0) (vector 0 1 0))
     in
     Lib.Camera.render c w

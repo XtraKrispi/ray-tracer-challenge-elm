@@ -187,6 +187,18 @@ suite =
                     ]
                     ()
             )
+        , test "Reflectivity for the default material"
+            (\_ ->
+                Expect.equal material.reflective 0
+            )
+        , test "Transparency and Refractive Index for the default material"
+            (\_ ->
+                Expect.all
+                    [ \m -> Expect.equal m.transparency 0
+                    , \m -> Expect.equal m.refractiveIndex 1
+                    ]
+                    material
+            )
         ]
 
 

@@ -49,6 +49,15 @@ sphere id =
     }
 
 
+glassSphere : Id -> Object
+glassSphere id =
+    { id = id
+    , transform = identityMatrix
+    , shape = Sphere
+    , material = { material | transparency = 1, refractiveIndex = 1.5 }
+    }
+
+
 testShape : Id -> Object
 testShape id =
     { id = id

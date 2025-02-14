@@ -4,7 +4,8 @@ import Lib exposing (epsilon)
 import Lib.Matrix exposing (invert)
 import Lib.Object exposing (Object, Shape(..), normalAt)
 import Lib.Ray exposing (Ray, position, transform)
-import Lib.Tuple exposing (Tuple, add, dot, multiply, point, subtract)
+import Lib.Tuple exposing (Tuple, add, dot, multiply, point, reflect, subtract)
+import List
 import List.Extra as List
 
 
@@ -87,23 +88,31 @@ type alias Computation =
     , normalv : Tuple
     , overPoint : Tuple
     , inside : Bool
+    , reflectv : Tuple
+    , n1 : Float
+    , n2 : Float
+    , underPoint : Tuple
     }
 
 
-prepareComputations : Ray -> Intersection -> Computation
-prepareComputations ray intersection =
+prepareComputations : Ray -> List Intersection -> Intersection -> Computation
+prepareComputations ray xs h =
     let
         pt =
-            position ray intersection.t
+            position ray h.t
 
         comps =
-            { t = intersection.t
-            , object = intersection.object
+            { t = h.t
+            , object = h.object
             , point = pt
             , eyev = Lib.Tuple.negate ray.direction
-            , normalv = normalAt pt intersection.object
+            , normalv = normalAt pt h.object
             , inside = False
             , overPoint = pt
+            , reflectv = pt
+            , n1 = 0
+            , n2 = 0
+            , underPoint = pt
             }
 
         results =
@@ -112,7 +121,104 @@ prepareComputations ray intersection =
 
             else
                 { comps | inside = False }
+
+        { n1, n2 } =
+            go h xs ( [], { n1 = 0, n2 = 0 } )
     in
     { results
         | overPoint = add results.point (multiply results.normalv epsilon)
+        , underPoint = subtract results.point (multiply results.normalv epsilon)
+        , reflectv = reflect ray.direction results.normalv
+        , n1 = n1
+        , n2 = n2
     }
+
+
+go :
+    Intersection
+    -> List Intersection
+    -> ( List Object, { n1 : Float, n2 : Float } )
+    -> { n1 : Float, n2 : Float }
+go h xs ( containers, { n1, n2 } ) =
+    case xs of
+        [] ->
+            { n1 = 1, n2 = 1 }
+
+        i :: rest ->
+            let
+                isHit =
+                    h == i
+
+                compsN1 =
+                    if isHit then
+                        if List.isEmpty containers then
+                            1
+
+                        else
+                            List.last containers
+                                |> Maybe.map (\m -> m.material.refractiveIndex)
+                                |> Maybe.withDefault 0
+
+                    else
+                        1
+
+                newContainers =
+                    if List.member i.object containers then
+                        List.remove i.object containers
+
+                    else
+                        containers ++ [ i.object ]
+
+                compsN2 =
+                    if isHit then
+                        if List.isEmpty newContainers then
+                            1
+
+                        else
+                            List.last newContainers
+                                |> Maybe.map (\m -> m.material.refractiveIndex)
+                                |> Maybe.withDefault 0
+
+                    else
+                        1
+            in
+            if isHit then
+                { n1 = compsN1, n2 = compsN2 }
+
+            else
+                go h rest ( newContainers, { n1 = compsN1, n2 = compsN2 } )
+
+
+schlick : Computation -> Float
+schlick comps =
+    let
+        cos =
+            dot comps.eyev comps.normalv
+    in
+    if comps.n1 > comps.n2 then
+        let
+            n =
+                comps.n1 / comps.n2
+
+            sin2T =
+                (n ^ 2) * (1 - (cos ^ 2))
+        in
+        if sin2T > 1 then
+            1
+
+        else
+            let
+                cosT =
+                    sqrt (1 - sin2T)
+
+                r0 =
+                    ((comps.n1 - comps.n2) / (comps.n1 + comps.n2)) ^ 2
+            in
+            r0 + (1 - r0) * (1 - cosT) ^ 5
+
+    else
+        let
+            r0 =
+                ((comps.n1 - comps.n2) / (comps.n1 + comps.n2)) ^ 2
+        in
+        r0 + (1 - r0) * (1 - cos) ^ 5

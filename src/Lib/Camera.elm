@@ -87,7 +87,7 @@ render c w =
     canvas
         (\( x, y ) ->
             rayForPixel c (toFloat x) (toFloat y)
-                |> colorAt w
+                |> colorAt w 5
         )
         c.hsize
         c.vsize

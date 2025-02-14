@@ -6,7 +6,7 @@ import Lib.Intersection exposing (intersections)
 import Lib.Material exposing (material)
 import Lib.Matrix exposing (identityMatrix, multiply)
 import Lib.Matrix.Transformation exposing (RotationAmount(..), rotationZ, scaling, translation)
-import Lib.Object exposing (Id(..), normalAt, setMaterial, setTransform, sphere, testShape)
+import Lib.Object exposing (Id(..), glassSphere, normalAt, setMaterial, setTransform, sphere, testShape)
 import Lib.Ray exposing (Ray)
 import Lib.Tuple exposing (Tuple, normalize, point, vector)
 import Test exposing (Test, describe, test)
@@ -145,6 +145,15 @@ suite =
                             |> setMaterial m
                 in
                 Expect.equal s.material m
+            )
+        , test "A helper for producing a sphere with a glassy material"
+            (\_ ->
+                Expect.all
+                    [ \s -> Expect.equal s.transform identityMatrix
+                    , \s -> Expect.within (Expect.Absolute epsilon) s.material.transparency 1
+                    , \s -> Expect.within (Expect.Absolute epsilon) s.material.refractiveIndex 1.5
+                    ]
+                    (glassSphere (Id 1))
             )
         ]
 
