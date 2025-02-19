@@ -30,6 +30,8 @@ type Shape
     = Sphere
     | TestShape
     | Plane
+    | Cube
+    | Cylinder
 
 
 type alias Object =
@@ -76,6 +78,15 @@ plane id =
     }
 
 
+cube : Id -> Object
+cube id =
+    { id = id
+    , transform = identityMatrix
+    , shape = Cube
+    , material = material
+    }
+
+
 setTransform : Matrix FourByFourMatrix -> Object -> Object
 setTransform m obj =
     { obj | transform = m }
@@ -96,6 +107,23 @@ localNormalAt localPoint obj =
             subtract localPoint (point 0 0 0)
 
         Plane ->
+            vector 0 1 0
+
+        Cube ->
+            let
+                maxC =
+                    max (max (abs localPoint.x) (abs localPoint.y)) (abs localPoint.z)
+            in
+            if maxC == abs localPoint.x then
+                vector localPoint.x 0 0
+
+            else if maxC == abs localPoint.y then
+                vector 0 localPoint.y 0
+
+            else
+                vector 0 0 localPoint.z
+
+        Cylinder ->
             vector 0 1 0
 
 

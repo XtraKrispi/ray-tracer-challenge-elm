@@ -62,6 +62,64 @@ localIntersections { origin, direction } obj =
                   }
                 ]
 
+        Cube ->
+            let
+                ( xtmin, xtmax ) =
+                    checkAxis origin.x direction.x
+
+                ( ytmin, ytmax ) =
+                    checkAxis origin.y direction.y
+
+                ( ztmin, ztmax ) =
+                    checkAxis origin.z direction.z
+
+                tmin =
+                    max (max xtmin ytmin) ztmin
+
+                tmax =
+                    min (min xtmax ytmax) ztmax
+            in
+            if tmin > tmax then
+                []
+
+            else
+                [ Intersection tmin obj, Intersection tmax obj ]
+
+        Cylinder ->
+            []
+
+
+signum : Float -> Float
+signum f =
+    if f < 0 then
+        -1
+
+    else
+        1
+
+
+checkAxis : Float -> Float -> ( Float, Float )
+checkAxis origin direction =
+    let
+        tminNumerator =
+            -1 - origin
+
+        tmaxNumerator =
+            1 - origin
+
+        ( tmin, tmax ) =
+            if abs direction >= epsilon then
+                ( tminNumerator / direction, tmaxNumerator / direction )
+
+            else
+                ( signum tminNumerator * 2147483647, signum tmaxNumerator * 2147483647 )
+    in
+    if tmin > tmax then
+        ( tmax, tmin )
+
+    else
+        ( tmin, tmax )
+
 
 intersections : Ray -> Object -> List Intersection
 intersections r obj =
